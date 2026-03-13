@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meridiam - Gerador de Ícones PWA</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .icon-preview {
+            display: flex;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        .icon-box {
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #4338ca;
+        }
+        h1 {
+            color: #1e293b;
+        }
+        .instructions {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+            border-left: 4px solid #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Gerador de Ícones PWA</h1>
+    <p>Clique nos botões abaixo para fazer download dos ícones do Meridiam.</p>
+
+    <div class="icon-preview">
+        <div class="icon-box">
+            <canvas id="icon-192" width="192" height="192"></canvas>
+            <br>
+            <button onclick="downloadIcon('icon-192', 'icon-192.png')">Download 192x192</button>
+        </div>
+        <div class="icon-box">
+            <canvas id="icon-512" width="512" height="512"></canvas>
+            <br>
+            <button onclick="downloadIcon('icon-512', 'icon-512.png')">Download 512x512</button>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h3>📌 Instruções</h3>
+        <ol>
+            <li>Clique em cada botão "Download" para baixar os ícones</li>
+            <li>Salve os arquivos na raiz do projeto (mesma pasta do index.html)</li>
+            <li>Os ícones já estão configurados no manifest.json</li>
+            <li>Teste instalando a PWA no seu dispositivo</li>
+        </ol>
+    </div>
+
+    <script>
+        function drawIcon(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#4f46e5');
+            gradient.addColorStop(1, '#7c3aed');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw "M" text (Meridiam)
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.35}px 'Arial', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('M', size / 2, size / 2.2);
+
+            // Draw sparkle emoji
+            ctx.font = `${size * 0.2}px Arial`;
+            ctx.fillText('✨', size / 2, size / 1.5);
+
+            // Draw subtle border
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = size * 0.02;
+            ctx.strokeRect(size * 0.05, size * 0.05, size * 0.9, size * 0.9);
+        }
+
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Generate icons on load
+        window.onload = () => {
+            drawIcon('icon-192');
+            drawIcon('icon-512');
+        };
+    </script>
+</body>
+</html>
