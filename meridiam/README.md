@@ -1,129 +1,122 @@
 # Meridiam ✨
+## Toma decisões melhores em 30 segundos
 
-Decision Maker Hub - Aplicação web progressiva (PWA) com ferramentas de gestão e marketing para tomada de decisão baseada em dados, com integração de IA.
+Ferramenta visual para priorizares tarefas usando o método GUT (Gravidade × Urgência × Tendência).
+Com IA opcional para te dar sugestões estratégicas.
 
-## Características
+---
 
-- **Decision Frameworks**: Método GUT (Gravidade, Urgência, Tendência) e outras ferramentas
-- **Multiplataforma**: Funciona em desktop, mobile e tablet
-- **PWA**: Instalável como app nativo
-- **Offline-first**: Funciona sem internet (modo local)
-- **Sync Cloud**: Sincronização opcional com Firebase
-- **IA Integrada**: Sugestões e análises estratégicas com Google Gemini
+## 🚀 Começar AGORA (literalmente 30 segundos)
 
-## Setup Rápido
+### Opção 1: Mais Simples (sem IA)
+1. Faz download de `index.html`
+2. Duplo-clique no ficheiro
+3. Já está a funcionar ✅
 
-### 1. Configuração Básica (Modo Local)
+### Opção 2: Com IA (2 minutos extra)
+1. Faz download de **todos** os ficheiros desta pasta
+2. Copia `config.example.js` e renomeia para `config.js`
+3. [Clica aqui](https://aistudio.google.com/app/apikey) para criar uma API key do Google (grátis)
+4. Abre `config.js` e cola a tua API key onde diz `YOUR_GEMINI_API_KEY_HERE`
+5. Duplo-clique em `index.html`
+6. Pronto - agora tens IA ✨
 
+---
+
+## 💡 Como usar
+
+### 1️⃣ Adicionar uma decisão/tarefa
+Clica no botão **+** e escreve o que precisas fazer.
+Exemplo: *"Lançar campanha no Instagram"*
+
+### 2️⃣ Classificar importância
+Responde 3 perguntas simples (escala de 1 a 5):
+- **G**ravidade: Que problema isto resolve?
+- **U**rgência: Precisa ser feito quando?
+- **T**endência: Vai piorar se não fizer?
+
+💡 *Dica: Clica em "Sugerir com IA" e ela classifica por ti*
+
+### 3️⃣ Ver prioridades
+A app calcula automaticamente o que é crítico (score alto = fazer JÁ).
+Gráfico visual mostra tudo numa bolha interativa.
+
+### 4️⃣ Pedir estratégia à IA
+Clica em **"✨ Estratégia"** em qualquer tarefa.
+A IA dá-te um plano de ação concreto.
+
+---
+
+## ❓ Perguntas Rápidas
+
+**Preciso de internet?**
+Não. Funciona 100% offline no teu computador/telemóvel.
+
+**Os meus dados ficam onde?**
+No teu dispositivo. Nada vai para a cloud (a não ser que configures Firebase).
+
+**Funciona no telemóvel?**
+Sim! Abre no browser. Podes até "instalar" como app (Chrome → Menu → Instalar app).
+
+**Quanto custa?**
+Zero. A API do Google Gemini tem plano grátis generoso.
+
+**Preciso saber programar?**
+Não. Zero código. Prometo.
+
+---
+
+## 🎨 Personalização (Opcional)
+
+### Ícones para instalar como app
+1. Abre `generate-icons.html` no browser
+2. Faz download dos 2 ícones
+3. Guarda-os nesta pasta
+4. Agora podes instalar como app nativa no telemóvel
+
+### Sincronizar entre dispositivos
+Se quiseres que as tarefas apareçam em todos os teus dispositivos:
+1. Cria conta grátis no [Firebase](https://console.firebase.google.com/)
+2. Copia as credenciais para `config.js`
+3. Pronto - sincroniza automaticamente
+
+---
+
+## 🆘 Problemas?
+
+**IA não funciona**
+→ Confirma que colocaste a API key no `config.js`
+
+**Abre mas não guarda nada**
+→ Normal se abrires diretamente do ficheiro. Usa um servidor local:
 ```bash
-# Clone o repositório
-git clone https://github.com/mauricioslacerda-jpg/no-code-but-it-works.git
-cd no-code-but-it-works/meridiam
-
-# Abra index.html diretamente no navegador
-# A app funciona em modo local sem configuração adicional
+# Se tiveres Python instalado:
+python -m http.server 8000
+# Abre http://localhost:8000
 ```
 
-### 2. Configuração com IA (Opcional)
+**Não consigo instalar como app**
+→ Precisa estar num servidor (não funciona abrindo o ficheiro diretamente)
 
-```bash
-# Copie o arquivo de exemplo
-cp config.example.js config.js
+---
 
-# Edite config.js e adicione sua Gemini API Key
-# Obtenha em: https://aistudio.google.com/app/apikey
-```
+## 🧠 Para quem é isto?
 
-### 3. Configuração com Sync Cloud (Opcional)
+✅ Gestores de produto com backlog infinito
+✅ Marketers a escolher entre 20 campanhas
+✅ Founders a priorizar features
+✅ Qualquer pessoa cansada de decidir "à sorte"
 
-Edite `config.js` e adicione as credenciais do Firebase:
+---
 
-1. Acesse [Firebase Console](https://console.firebase.google.com/)
-2. Crie um novo projeto
-3. Ative Firestore Database e Authentication (Anonymous)
-4. Copie as credenciais para `config.js`
+## 🔒 Privacidade
 
-## Deploy
+- Tudo fica no teu dispositivo
+- A IA só vê o que tu envias (e não guarda nada)
+- Zero tracking
+- Zero analytics
+- Código aberto - podes ver tudo
 
-### GitHub Pages
+---
 
-```bash
-# Ative GitHub Pages nas configurações do repositório
-# Branch: main
-# Folder: / (root)
-```
-
-### Netlify / Vercel
-
-```bash
-# Faça deploy direto do repositório
-# Build command: (deixe vazio)
-# Publish directory: /
-```
-
-### Firebase Hosting
-
-```bash
-npm install -g firebase-tools
-firebase login
-firebase init hosting
-firebase deploy
-```
-
-## Estrutura
-
-```
-/
-├── index.html          # Aplicação principal
-├── config.example.js   # Template de configuração
-├── config.js          # Suas credenciais (não versionado)
-├── manifest.json      # PWA manifest
-└── README.md          # Documentação do projeto
-```
-
-## Modos de Operação
-
-| Modo | Requer | Funcionalidades |
-|------|--------|-----------------|
-| **Local** | Nada | CRUD de atividades GUT, cálculo de scores, gráficos |
-| **+ IA** | Gemini API | Sugestões automáticas, análises, estratégias |
-| **+ Cloud** | Firebase | Sincronização multi-dispositivo, backup automático |
-
-## Uso
-
-1. **Adicionar Atividade**: Clique no botão + e descreva a tarefa
-2. **Avaliar GUT**: Defina Gravidade, Urgência e Tendência (1-5)
-3. **Usar IA**: Clique em "Sugerir com IA" para avaliação automática
-4. **Ver Estratégia**: Em cada atividade, clique "Estratégia" para plano de ação
-5. **Analisar Tudo**: Na home, "Analisar Prioridades" para visão geral
-
-## Segurança
-
-- **NUNCA** faça commit de `config.js`
-- Use variáveis de ambiente em produção
-- Restrinja a API Key do Gemini no Google Cloud Console
-- Configure regras de segurança do Firestore
-
-## Compatibilidade
-
-- ✅ Chrome/Edge 90+
-- ✅ Safari 14+
-- ✅ Firefox 88+
-- ✅ iOS Safari 14+
-- ✅ Chrome Android 90+
-
-## Tecnologias
-
-- Vanilla JavaScript (ES6+)
-- Tailwind CSS (CDN)
-- Chart.js (gráficos)
-- Firebase (backend opcional)
-- Google Gemini AI (análises)
-
-## Licença
-
-MIT - Use como quiser.
-
-## Suporte
-
-Abra uma issue no GitHub para bugs ou sugestões.
+**Feito com ☕ e frustração com ferramentas complicadas**
