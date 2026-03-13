@@ -20,12 +20,17 @@ it's probably solving the wrong problem.
 
 ---
 
-## 🚀 Meridiam - Decision Maker Hub
+## 📂 Projects
 
-**[Ver Aplicação](index.html)** | **[Documentação Completa](APP_README.md)**
+### 🚀 [Meridiam](meridiam/) - Decision Maker Hub
 
-Decision Maker Hub com ferramentas de gestão e marketing para tomada de decisão. Funciona offline, sincroniza na nuvem (opcional), roda em qualquer dispositivo.
+**[Launch App](meridiam/index.html)** | **[Full Documentation](meridiam/README.md)**
 
-**Quick Start**: Abra `index.html` no navegador. Pronto.
+Decision Maker Hub com ferramentas de gestão e marketing para tomada de decisão baseada em dados.
 
-**Com IA**: Copie `config.example.js` → `config.js` e adicione sua [Gemini API Key](https://aistudio.google.com/app/apikey).
+- ✨ **AI-Powered**: Análises estratégicas com Gemini
+- 📱 **PWA**: Instalável em qualquer dispositivo
+- 🔒 **Privacy-First**: Funciona 100% offline
+- ☁️ **Optional Sync**: Firebase cloud backup
+
+**Quick Start**: `cd meridiam` → Abra `index.html` → Pronto.

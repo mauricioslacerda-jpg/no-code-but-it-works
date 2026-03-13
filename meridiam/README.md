@@ -17,8 +17,8 @@ Decision Maker Hub - Aplicação web progressiva (PWA) com ferramentas de gestã
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/no-code-but-it-works.git
-cd no-code-but-it-works
+git clone https://github.com/mauricioslacerda-jpg/no-code-but-it-works.git
+cd no-code-but-it-works/meridiam
 
 # Abra index.html diretamente no navegador
 # A app funciona em modo local sem configuração adicional
