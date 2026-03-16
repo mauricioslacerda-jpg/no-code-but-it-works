@@ -1,69 +1,43 @@
-# 🔄 Antigravity Google Drive Sync
+# No-Code (But It Works)
 
-Agente de sincronização para compartilhar dados do [Antigravity](https://antigravity.google) entre dois computadores via Google Drive.
+Sou consultor de marketing e growth.
 
-## ✨ Funcionalidades
+Construo soluções com IA porque cansei de esperar por developers que explicam coisas simples de forma complicada.
 
-- **Push**: Upload de dados locais para o Google Drive
-- **Pull**: Download de dados do Drive para o local
-- **Sync**: Sincronização bidirecional (pull + push)
-- **Updates**: Gerenciamento de atualizações gerais compartilhadas
-- **Backup automático**: Cria backups de releitura com flag `_01_reavaliar` quando há mudanças
-- **Detecção de conflitos**: Baseada em timestamps e checksums MD5
+## O que encontras aqui
+Ferramentas práticas que resolvem problemas reais.
+Sem código. Sem complexidade. Só resultados.
 
-## 📁 O que é sincronizado
+---
 
-| Pasta | Conteúdo |
-|-------|----------|
-| `brain/` | Conversas e artefatos do Antigravity |
-| `knowledge/` | Knowledge Items acumulados |
-| `conversations/` | Logs de conversas (protobuf) |
-| `updates/` | Notas de atualização gerais |
+## 🎯 Meridiam - Toma Decisões Melhores, Mais Rápido
 
-## 🚀 Setup Rápido
+**[🚀 Abrir App](meridiam/index.html)**
 
-### 1. Instalar Python e dependências
+Uma ferramenta visual para priorizares o que realmente importa no teu negócio.
 
-```bash
-pip install -r requirements.txt
-```
+### Como funciona (3 passos)
 
-### 2. Configurar credenciais OAuth2
+1. **Adiciona** uma tarefa ou decisão
+2. **Classifica** a importância (a IA pode ajudar)
+3. **Vê** automaticamente o que fazer primeiro
 
-Siga o guia em [setup_credentials.md](setup_credentials.md) para criar as credenciais no Google Cloud Console.
+### Sem instalação necessária
+✅ Abre no browser (Chrome, Safari, qualquer um)
+✅ Funciona offline
+✅ Salva tudo automaticamente
+✅ IA opcional (se quiseres sugestões estratégicas)
 
-### 3. Autenticar
+### Para quem é isto?
+- Gestores de marketing que precisam priorizar campanhas
+- Founders que têm 1000 coisas para fazer
+- Qualquer pessoa que quer parar de decidir "pelo feeling"
 
-```bash
-python gdrive_sync.py auth
-```
+**Leva 30 segundos a começar** → [Instruções simples aqui](meridiam/README.md)
 
-### 4. Sincronizar!
+---
 
-```bash
-python gdrive_sync.py sync      # Sincronização bidirecional
-python gdrive_sync.py push      # Apenas enviar
-python gdrive_sync.py pull      # Apenas receber
-python gdrive_sync.py status    # Ver status atual
-python gdrive_sync.py updates   # Ver atualizações gerais
-```
+## 💡 Filosofia
 
-## 📝 Comandos de Updates
-
-```bash
-python gdrive_sync.py updates list                    # Listar atualizações
-python gdrive_sync.py updates add "Mensagem aqui"     # Adicionar nota
-python gdrive_sync.py updates clear                   # Limpar notas antigas (>30 dias)
-```
-
-## ⚙️ Como funciona
-
-```
-PC 1 ←→ Google Drive (Antigravity-Sync/) ←→ PC 2
-```
-
-Os dados do Antigravity são sincronizados via uma pasta compartilhada no Google Drive. O script usa checksums MD5 para detectar mudanças e timestamps para resolver conflitos.
-
-## 👤 Autor
-
-Mauricio Lacerda (mauricio.s.lacerda@gmail.com)
+Se uma solução precisa de uma explicação técnica longa para justificar-se,
+provavelmente está a resolver o problema errado.

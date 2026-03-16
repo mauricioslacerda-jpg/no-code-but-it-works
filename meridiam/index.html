@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meridiam ✨</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="config.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 80px; /* Espaço para a barra inferior */
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUp 0.3s ease-out; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            max-height: 400px;
+        }
+
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border-left-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Estilo para cartões de atividade */
+        .activity-card {
+            transition: transform 0.2s active;
+        }
+        .activity-card:active { transform: scale(0.98); }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Load config from config.js or fallback to local mode
+        const config = window.APP_CONFIG || {};
+        const firebaseConfig = config.firebase || {};
+
+        try {
+            if (!firebaseConfig.apiKey) {
+                throw new Error('Firebase config not found - running in local mode');
+            }
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = config.appId || 'meridiam-app';
+
+            window.appState = {
+                user: null,
+                items: [],
+                activeTab: 'home'
+            };
+
+            // Auth
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch(e) {
+                    console.log("Firebase Auth Error", e);
+                }
+            };
+
+            onAuthStateChanged(auth, (user) => {
+                window.appState.user = user;
+                if (user) {
+                    document.getElementById('cloud-status').textContent = 'Nuvem Ativa';
+                    setupDataListener();
+                }
+            });
+
+            const setupDataListener = () => {
+                const col = collection(db, 'artifacts', appId, 'public', 'data', 'gut_items');
+                onSnapshot(col, (snap) => {
+                    const items = [];
+                    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                    window.appState.items = items;
+                    window.renderApp();
+                }, (error) => {
+                    console.log("Firestore Error", error);
+                });
+            };
+
+            window.saveItem = async (item) => {
+                if (!window.appState.user) return;
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gut_items', item.id), item);
+            };
+
+            window.deleteItem = async (id) => {
+                if (!window.appState.user) return;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gut_items', id));
+            };
+
+            initAuth();
+        } catch(e) {
+            console.log("Firebase init skipped due to missing config", e);
+            document.getElementById('cloud-status').textContent = 'Modo Local';
+            window.appState = { user: null, items: [], activeTab: 'home' };
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <header class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-40">
+        <div class="flex justify-between items-center">
+            <h1 class="font-extrabold text-lg text-indigo-600 tracking-tight">Meridiam ✨</h1>
+            <span id="cloud-status" class="text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">A ligar...</span>
+        </div>
+    </header>
+
+    <!-- Tab 1: Home/Stats -->
+    <section id="tab-home" class="tab-content active px-6 py-6">
+        <div class="mb-6">
+            <h2 class="text-2xl font-black text-slate-900">Olá! 👋</h2>
+            <p class="text-sm text-slate-500">Aqui está o resumo da tua priorização.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-lg shadow-indigo-200">
+                <p class="text-[10px] font-bold opacity-70 uppercase mb-1">Total</p>
+                <h3 id="stat-total" class="text-3xl font-black">0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <p class="text-[10px] font-bold text-rose-500 uppercase mb-1">Críticos</p>
+                <h3 id="stat-critical" class="text-3xl font-black">0</h3>
+            </div>
+        </div>
+
+        <div id="ai-insight-box" class="bg-slate-900 rounded-[2rem] p-6 text-white mb-6">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-indigo-400">✨</span>
+                <h4 class="text-xs font-bold uppercase tracking-widest">Insight do Gestor</h4>
+            </div>
+            <p id="ai-global-summary" class="text-sm text-slate-300 leading-relaxed italic">Adicione atividades para receber uma análise estratégica da IA.</p>
+            <button onclick="analyzeAll()" id="btn-analyze" class="mt-4 w-full bg-indigo-500 py-3 rounded-2xl text-xs font-bold active:bg-indigo-600 transition-colors">Analisar Prioridades</button>
+        </div>
+    </section>
+
+    <!-- Tab 2: Lista de Atividades -->
+    <section id="tab-list" class="tab-content px-6 py-6">
+        <h2 class="text-xl font-black mb-4">Backlog de Decisões</h2>
+        <div id="activities-list" class="space-y-4">
+            <div class="text-center py-10 text-slate-400 italic text-sm">A carregar atividades...</div>
+        </div>
+    </section>
+
+    <!-- Tab 3: Adicionar Atividade -->
+    <section id="tab-add" class="tab-content px-6 py-6">
+        <div class="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl">
+            <h2 class="text-xl font-black mb-6">Nova Atividade</h2>
+            <form id="gut-form" class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-2">Descrição</label>
+                    <textarea id="item-name" required class="w-full bg-slate-50 rounded-2xl p-4 text-sm border-none focus:ring-2 focus:ring-indigo-500 outline-none h-32" placeholder="O que precisa de ser feito?"></textarea>
+                    <button type="button" onclick="suggestFromAI()" id="btn-suggest" class="mt-2 text-[10px] font-bold text-indigo-600 flex items-center gap-1">
+                        ✨ Sugerir Notas com IA
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="text-center">
+                        <span class="text-[10px] font-bold text-rose-500 mb-1 block">G</span>
+                        <select id="item-g" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-bold appearance-none text-center">
+                            <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-[10px] font-bold text-amber-500 mb-1 block">U</span>
+                        <select id="item-u" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-bold appearance-none text-center">
+                            <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-[10px] font-bold text-emerald-500 mb-1 block">T</span>
+                        <select id="item-t" class="w-full bg-slate-50 rounded-xl p-3 text-sm font-bold appearance-none text-center">
+                            <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-transform">Adicionar à Matriz</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Tab 4: Gráfico -->
+    <section id="tab-chart" class="tab-content px-6 py-6">
+        <h2 class="text-xl font-black mb-2">Mapa Visual</h2>
+        <p class="text-xs text-slate-500 mb-6">Pressione nas bolhas para ver os detalhes.</p>
+        <div class="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+            <div class="chart-container">
+                <canvas id="gutChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Bar Inferior -->
+    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 h-20 px-6 flex items-center justify-between z-50">
+        <button onclick="switchTab('home')" class="nav-btn flex flex-col items-center gap-1 text-indigo-600" data-tab="home">
+            <span class="text-xl">🏠</span>
+            <span class="text-[10px] font-bold uppercase">Início</span>
+        </button>
+        <button onclick="switchTab('list')" class="nav-btn flex flex-col items-center gap-1 text-slate-400" data-tab="list">
+            <span class="text-xl">📋</span>
+            <span class="text-[10px] font-bold uppercase">Backlog</span>
+        </button>
+        <button onclick="switchTab('add')" class="nav-btn flex flex-col items-center gap-1 text-slate-400" data-tab="add">
+            <span class="text-2xl bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center -mt-8 shadow-lg shadow-indigo-200">＋</span>
+        </button>
+        <button onclick="switchTab('chart')" class="nav-btn flex flex-col items-center gap-1 text-slate-400" data-tab="chart">
+            <span class="text-xl">📊</span>
+            <span class="text-[10px] font-bold uppercase">Mapa</span>
+        </button>
+    </nav>
+
+    <!-- Modal para Estratégia -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-6">
+        <div class="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 max-h-[90vh] overflow-y-auto">
+            <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden"></div>
+            <div id="modal-content" class="text-sm leading-relaxed">
+                <!-- Conteúdo IA -->
+            </div>
+            <button onclick="closeModal()" class="mt-8 w-full bg-slate-900 text-white font-bold py-4 rounded-2xl">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Gemini Config ---
+        const apiKey = (window.APP_CONFIG && window.APP_CONFIG.geminiApiKey) || "";
+        const model = (window.APP_CONFIG && window.APP_CONFIG.geminiModel) || "gemini-2.5-flash-preview-09-2025";
+
+        async function talkToGemini(prompt, sys) {
+            if (!apiKey) {
+                return "Configure a API Key do Gemini no arquivo config.js para usar IA.";
+            }
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const body = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] } };
+            try {
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const d = await res.json();
+                if (d.error) {
+                    return `Erro: ${d.error.message}`;
+                }
+                return d.candidates[0].content.parts[0].text;
+            } catch (e) {
+                return "Erro na ligação com Gemini. Verifique a API Key.";
+            }
+        }
+
+        // --- UI Logic ---
+        let chart = null;
+
+        window.switchTab = (tabId) => {
+            window.appState.activeTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            
+            // Update Nav Icons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.replace('text-indigo-600', 'text-slate-400');
+            });
+            document.querySelector(`.nav-btn[data-tab="${tabId}"]`).classList.replace('text-slate-400', 'text-indigo-600');
+
+            if (tabId === 'chart') updateChart();
+        };
+
+        window.renderApp = () => {
+            const list = document.getElementById('activities-list');
+            const items = window.appState.items.sort((a,b) => b.score - a.score);
+            
+            document.getElementById('stat-total').textContent = items.length;
+            document.getElementById('stat-critical').textContent = items.filter(i => i.score >= 80).length;
+
+            if (items.length === 0) {
+                list.innerHTML = `<div class="text-center py-20 text-slate-300">Nenhuma atividade.</div>`;
+                return;
+            }
+
+            list.innerHTML = items.map(item => `
+                <div class="activity-card bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-900 leading-tight">${item.name}</h3>
+                            <div class="flex gap-2 mt-2">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">Score ${item.score}</span>
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-0.5 rounded">G:${item.g} U:${item.u} T:${item.t}</span>
+                            </div>
+                        </div>
+                        <button onclick="deleteActivity('${item.id}')" class="text-slate-300 p-1">✕</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="getStrategy('${item.id}')" class="flex-1 bg-slate-900 text-white text-[10px] font-bold py-3 rounded-xl active:bg-indigo-600">✨ Estratégia</button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        // --- IA Actions ---
+        window.suggestFromAI = async () => {
+            const name = document.getElementById('item-name').value;
+            if (name.length < 5) return;
+            const btn = document.getElementById('btn-suggest');
+            btn.innerHTML = `<div class="spinner border-indigo-600"></div> Sugerindo...`;
+            
+            try {
+                const res = await talkToGemini(name, "Mestre GUT. Responda APENAS JSON: {\"g\":n,\"u\":n,\"t\":n}");
+                const data = JSON.parse(res.replace(/```json|```/g, '').trim());
+                document.getElementById('item-g').value = data.g;
+                document.getElementById('item-u').value = data.u;
+                document.getElementById('item-t').value = data.t;
+            } catch (e) {} finally { btn.innerHTML = "✨ Sugerir Notas com IA"; }
+        };
+
+        window.getStrategy = async (id) => {
+            const item = window.appState.items.find(i => i.id === id);
+            openModal();
+            const content = document.getElementById('modal-content');
+            content.innerHTML = `<div class="flex flex-col items-center py-10 gap-3"><div class="spinner border-indigo-600"></div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">A consultar o Gemini...</p></div>`;
+            
+            const res = await talkToGemini(`Atividade: ${item.name}. GUT: ${item.g},${item.u},${item.t}. Plano curto em listas.`, "Consultor de Marketing.");
+            content.innerHTML = `
+                <div class="bg-indigo-600 p-6 rounded-3xl text-white mb-6">
+                    <h3 class="font-black text-lg mb-1">${item.name}</h3>
+                    <p class="text-[10px] font-bold opacity-70 uppercase">Prioridade Nível ${item.score >= 80 ? 'Crítico' : 'Operacional'}</p>
+                </div>
+                <div class="prose prose-indigo text-slate-600">
+                    ${res.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                </div>
+            `;
+        };
+
+        window.analyzeAll = async () => {
+            if (window.appState.items.length === 0) return;
+            const btn = document.getElementById('btn-analyze');
+            const box = document.getElementById('ai-global-summary');
+            btn.innerHTML = `<div class="spinner"></div> Analisando...`;
+            
+            const ctx = window.appState.items.slice(0, 5).map(i => i.name).join('; ');
+            const res = await talkToGemini(ctx, "Resuma o maior gargalo deste backlog de marketing em 2 frases incisivas.");
+            box.textContent = res;
+            btn.innerHTML = "Analisar Prioridades";
+        };
+
+        // --- Helpers ---
+        document.getElementById('gut-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('item-name').value;
+            const g = parseInt(document.getElementById('item-g').value);
+            const u = parseInt(document.getElementById('item-u').value);
+            const t = parseInt(document.getElementById('item-t').value);
+            const newItem = { id: Date.now().toString(), name, g, u, t, score: g * u * t };
+            
+            if (typeof window.saveItem === 'function' && window.appState.user) {
+                await window.saveItem(newItem);
+            } else {
+                // Modo local
+                window.appState.items.push(newItem);
+                window.renderApp();
+            }
+            
+            e.target.reset();
+            switchTab('list');
+        });
+
+        window.deleteActivity = async (id) => { 
+            if (confirm("Remover atividade?")) {
+                if (typeof window.deleteItem === 'function' && window.appState.user) {
+                    await window.deleteItem(id);
+                } else {
+                    // Modo local
+                    window.appState.items = window.appState.items.filter(i => i.id !== id);
+                    window.renderApp();
+                }
+            }
+        };
+
+        function updateChart() {
+            const ctx = document.getElementById('gutChart').getContext('2d');
+            const data = window.appState.items.map(i => ({ x: i.g, y: i.u, r: i.t * 5, color: i.score >= 80 ? '#e11d48' : '#4f46e5' }));
+            
+            if (chart) {
+                chart.data.datasets[0].data = data;
+                chart.data.datasets[0].backgroundColor = data.map(d => d.color + '99');
+                chart.update();
+            } else {
+                chart = new Chart(ctx, {
+                    type: 'bubble',
+                    data: { datasets: [{ data, backgroundColor: data.map(d => d.color + '99'), borderColor: '#4f46e5', borderWidth: 1 }] },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { 
+                            x: { min: 0, max: 6, title: { display: true, text: 'GRAVIDADE', font: { weight: '800', size: 9 } } }, 
+                            y: { min: 0, max: 6, title: { display: true, text: 'URGÊNCIA', font: { weight: '800', size: 9 } } } 
+                        }
+                    }
+                });
+            }
+        }
+
+        function openModal() {
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.renderApp();
+        });
+    </script>
+</body>
+</html>
