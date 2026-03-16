@@ -34,6 +34,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import io
+import logging
 
 # ============================================================================
 # CONFIGURAÇÃO
@@ -48,6 +49,7 @@ CREDENTIALS_PATH = SYNC_DIR / 'credentials.json'
 SYNC_STATE_PATH = SYNC_DIR / 'sync_state.json'
 BACKUP_DIR = SYNC_DIR / 'backups'
 GENERAL_UPDATES_DIR = ANTIGRAVITY_BASE / 'updates'
+AUDIT_LOG_PATH = SYNC_DIR / 'sync_audit.log'
 
 # Pastas do Antigravity a sincronizar
 SYNC_FOLDERS = ['brain', 'knowledge', 'conversations', 'updates']
@@ -61,6 +63,18 @@ IGNORE_PATTERNS = [
     '.DS_Store',
     'Thumbs.db',
 ]
+
+# ============================================================================
+# SEGURANÇA: Flags globais
+# ============================================================================
+
+DRY_RUN = '--dry-run' in sys.argv
+AUTO_APPROVE = '--yes' in sys.argv
+
+# POLÍTICA: Nenhum arquivo é excluído automaticamente.
+# Apenas uploads e downloads são permitidos.
+# Exclusões requerem aprovação explícita.
+NO_DELETE_POLICY = True
 
 
 # ============================================================================
@@ -100,6 +114,63 @@ def log_header(msg):
     print(f"\n{Colors.BOLD}{Colors.HEADER}{'='*60}")
     print(f"  {msg}")
     print(f"{'='*60}{Colors.END}\n")
+
+
+# ============================================================================
+# AUDITORIA E SEGURANÇA
+# ============================================================================
+
+def setup_audit_log():
+    """Configura log de auditoria para rastrear todas as operações."""
+    audit_logger = logging.getLogger('sync_audit')
+    audit_logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(str(AUDIT_LOG_PATH), encoding='utf-8')
+    handler.setFormatter(logging.Formatter(
+        '%(asctime)s | %(levelname)s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    ))
+    audit_logger.addHandler(handler)
+    return audit_logger
+
+
+audit = setup_audit_log()
+
+
+def confirm_action(action_description: str, details: list = None) -> bool:
+    """
+    Solicita confirmação do usuário antes de executar ações.
+    Retorna True se aprovado, False se recusado.
+    """
+    if AUTO_APPROVE:
+        audit.info(f'AUTO-APROVADO: {action_description}')
+        return True
+
+    if DRY_RUN:
+        log(f"  [DRY-RUN] {action_description}", Colors.WARNING)
+        if details:
+            for d in details:
+                log(f"    → {d}", Colors.CYAN)
+        return False
+
+    log(f"\n🔒 APROVAÇÃO NECESSÁRIA:", Colors.WARNING)
+    log(f"   {action_description}", Colors.BOLD)
+    if details:
+        for d in details:
+            log(f"    → {d}", Colors.CYAN)
+
+    try:
+        resp = input(f"\n   Confirmar? [s/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        resp = 'n'
+
+    approved = resp in ('s', 'sim', 'y', 'yes')
+    status = 'APROVADO' if approved else 'RECUSADO'
+    audit.info(f'{status}: {action_description}')
+
+    if not approved:
+        log("   ❌ Operação cancelada pelo usuário.", Colors.FAIL)
+
+    return approved
 
 
 def should_ignore(path: Path) -> bool:
@@ -374,19 +445,24 @@ def cmd_push():
     """Comando: upload de arquivos locais para o Drive."""
     log_header("⬆️  PUSH - Enviando dados para o Google Drive")
 
+    if DRY_RUN:
+        log("🔍 MODO DRY-RUN: nenhuma alteração será feita.\n", Colors.WARNING)
+
     service = get_drive_service()
     root_id = get_drive_root_folder(service)
     state = load_sync_state()
+    pending_changes = []
     changes = []
     file_count = 0
 
+    # Fase 1: Coletar mudanças
     for folder_name in SYNC_FOLDERS:
         local_folder = ANTIGRAVITY_BASE / folder_name
         if not local_folder.exists():
             log_warn(f"Pasta não encontrada: {local_folder}")
             continue
 
-        log(f"\n📁 Sincronizando: {folder_name}/", Colors.BOLD)
+        log(f"\n📁 Verificando: {folder_name}/", Colors.BOLD)
 
         for filepath in local_folder.rglob('*'):
             if filepath.is_dir() or should_ignore(filepath):
@@ -395,33 +471,47 @@ def cmd_push():
             relative = filepath.relative_to(ANTIGRAVITY_BASE)
             relative_str = str(relative).replace('\\', '/')
 
-            # Verificar se o arquivo mudou desde o último sync
             current_hash = file_hash(filepath)
             last_hash = state['files'].get(relative_str, {}).get('hash', '')
 
             if current_hash == last_hash:
-                continue  # Arquivo não mudou
+                continue
 
-            # Garantir que o diretório pai existe no Drive
-            parent_relative = relative.parent
-            parent_id = ensure_drive_path(service, root_id, parent_relative)
+            pending_changes.append((filepath, relative, relative_str, current_hash))
 
-            # Upload
-            upload_file(service, filepath, parent_id, relative_str)
+    if not pending_changes:
+        log_success("\n✅ Nenhuma alteração detectada. Tudo sincronizado.")
+        return
 
-            # Atualizar estado
-            state['files'][relative_str] = {
-                'hash': current_hash,
-                'last_push': datetime.now(timezone.utc).isoformat(),
-                'size': filepath.stat().st_size
-            }
-            changes.append(f"PUSH: {relative_str}")
-            file_count += 1
+    # Fase 2: Listar e aprovar
+    log(f"\n📋 {len(pending_changes)} arquivo(s) para enviar:", Colors.BOLD)
+    for _, _, rel_str, _ in pending_changes:
+        log(f"    ⬆️  {rel_str}")
+
+    if not confirm_action(
+        f"Enviar {len(pending_changes)} arquivo(s) para o Google Drive?",
+        [r for _, _, r, _ in pending_changes]
+    ):
+        return
+
+    # Fase 3: Executar uploads aprovados
+    for filepath, relative, relative_str, current_hash in pending_changes:
+        parent_relative = relative.parent
+        parent_id = ensure_drive_path(service, root_id, parent_relative)
+        upload_file(service, filepath, parent_id, relative_str)
+        audit.info(f'PUSH: {relative_str} (hash: {current_hash})')
+
+        state['files'][relative_str] = {
+            'hash': current_hash,
+            'last_push': datetime.now(timezone.utc).isoformat(),
+            'size': filepath.stat().st_size
+        }
+        changes.append(f"PUSH: {relative_str}")
+        file_count += 1
 
     save_sync_state(state)
 
     if file_count > 0:
-        # Criar backup de releitura e flag
         log(f"\n📦 Criando backup de releitura...")
         backup_path = create_backup()
         create_reavaliar_flag(backup_path, changes)
@@ -433,13 +523,15 @@ def cmd_pull():
     """Comando: download de arquivos do Drive para o local."""
     log_header("⬇️  PULL - Baixando dados do Google Drive")
 
+    if DRY_RUN:
+        log("🔍 MODO DRY-RUN: nenhuma alteração será feita.\n", Colors.WARNING)
+
     service = get_drive_service()
     root_id = get_drive_root_folder(service)
     state = load_sync_state()
     changes = []
     file_count = 0
 
-    # Listar todos os arquivos no Drive
     drive_files = list_drive_files_recursive(service, root_id)
 
     if not drive_files:
@@ -448,6 +540,9 @@ def cmd_pull():
 
     log(f"Encontrados {len(drive_files)} arquivo(s) no Drive.\n")
 
+    # Fase 1: Coletar arquivos para download
+    pending_downloads = []
+
     for drive_file in drive_files:
         relative_path = drive_file['relativePath']
 
@@ -455,18 +550,17 @@ def cmd_pull():
             continue
 
         local_path = ANTIGRAVITY_BASE / relative_path.replace('/', os.sep)
-
-        # Verificar se precisa baixar
         should_download = False
+        reason = ''
 
         if not local_path.exists():
             should_download = True
+            reason = 'NOVO'
         else:
             local_h = file_hash(local_path)
             drive_checksum = drive_file.get('md5Checksum', '')
 
             if drive_checksum and local_h != drive_checksum:
-                # Arquivo diferente - o do Drive é mais recente?
                 drive_modified = drive_file.get('modifiedTime', '')
                 local_modified = datetime.fromtimestamp(
                     local_path.stat().st_mtime, tz=timezone.utc
@@ -474,6 +568,7 @@ def cmd_pull():
 
                 if drive_modified > local_modified:
                     should_download = True
+                    reason = 'ATUALIZADO'
                 else:
                     log_warn(
                         f"  Conflito: {relative_path} "
@@ -481,16 +576,35 @@ def cmd_pull():
                     )
 
         if should_download:
-            download_file(service, drive_file['id'], local_path, relative_path)
+            pending_downloads.append((drive_file, local_path, relative_path, reason))
 
-            # Atualizar estado
-            state['files'][relative_path] = {
-                'hash': file_hash(local_path) if local_path.exists() else '',
-                'last_pull': datetime.now(timezone.utc).isoformat(),
-                'size': int(drive_file.get('size', 0))
-            }
-            changes.append(f"PULL: {relative_path}")
-            file_count += 1
+    if not pending_downloads:
+        log_success("\n✅ Nenhuma alteração detectada. Tudo sincronizado.")
+        return
+
+    # Fase 2: Listar e aprovar
+    log(f"\n📋 {len(pending_downloads)} arquivo(s) para baixar:", Colors.BOLD)
+    for _, _, rp, reason in pending_downloads:
+        log(f"    ⬇️  [{reason}] {rp}")
+
+    if not confirm_action(
+        f"Baixar {len(pending_downloads)} arquivo(s) do Google Drive?",
+        [f'[{r}] {rp}' for _, _, rp, r in pending_downloads]
+    ):
+        return
+
+    # Fase 3: Executar downloads aprovados
+    for drive_file, local_path, relative_path, reason in pending_downloads:
+        download_file(service, drive_file['id'], local_path, relative_path)
+        audit.info(f'PULL [{reason}]: {relative_path}')
+
+        state['files'][relative_path] = {
+            'hash': file_hash(local_path) if local_path.exists() else '',
+            'last_pull': datetime.now(timezone.utc).isoformat(),
+            'size': int(drive_file.get('size', 0))
+        }
+        changes.append(f"PULL: {relative_path}")
+        file_count += 1
 
     save_sync_state(state)
 
@@ -612,12 +726,31 @@ def cmd_updates():
         # Limpar atualizações antigas (> 30 dias)
         if not GENERAL_UPDATES_DIR.exists():
             return
-        count = 0
+        old_files = []
         cutoff = datetime.now().timestamp() - (30 * 86400)
         for u in GENERAL_UPDATES_DIR.glob('*.md'):
             if u.stat().st_mtime < cutoff:
-                u.unlink()
-                count += 1
+                old_files.append(u)
+
+        if not old_files:
+            log("Nenhuma atualização antiga para limpar.")
+            return
+
+        log(f"📋 {len(old_files)} arquivo(s) antigo(s) encontrado(s):")
+        for f in old_files:
+            log(f"    🗑️  {f.name}")
+
+        if not confirm_action(
+            f"Excluir {len(old_files)} atualização(ões) com mais de 30 dias?",
+            [f.name for f in old_files]
+        ):
+            return
+
+        count = 0
+        for u in old_files:
+            audit.info(f'DELETE update: {u.name}')
+            u.unlink()
+            count += 1
         log_success(f"{count} atualização(ões) antiga(s) removida(s).")
 
     else:
@@ -640,14 +773,24 @@ COMMANDS = {
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
+    # Filtrar flags dos argumentos
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+
+    if not args or args[0] not in COMMANDS:
         print(__doc__)
         print("Comandos disponíveis:")
         for cmd, func in COMMANDS.items():
             print(f"  {cmd:10s} - {func.__doc__.strip()}")
+        print("\nFlags de segurança:")
+        print("  --dry-run   Simular sem fazer alterações")
+        print("  --yes       Aprovar automaticamente todas as ações")
         sys.exit(1)
 
-    command = sys.argv[1]
+    if DRY_RUN:
+        log("\n🔍 MODO DRY-RUN ATIVO - nenhuma alteração será feita.\n", Colors.WARNING)
+
+    command = args[0]
+    audit.info(f'=== COMANDO: {command} (dry_run={DRY_RUN}, auto_approve={AUTO_APPROVE}) ===')
     COMMANDS[command]()
 
 
